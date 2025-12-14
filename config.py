@@ -3,7 +3,7 @@
 # =========================
 
 # Token bot dari @BotFather
-BOT_TOKEN = "TOKEN KAMU"
+BOT_TOKEN = "TOKEN_KAMU"
 
 # ID Telegram owner (untuk akses unlimited & stats)
 OWNER_ID = 12345678  # ganti dengan ID kamu
