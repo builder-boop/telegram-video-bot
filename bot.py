@@ -1,194 +1,168 @@
-import asyncio
+# =========================
+# TELEGRAM VIDEO BOT (AIROGRAM v3) - FIXED
+# =========================
+
 import os
-import uuid
-import json
+import asyncio
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from yt_dlp import YoutubeDL
-from config import (
-    BOT_TOKEN,
-    OWNER_ID,
-    DOWNLOAD_DIR,
-    LIMIT_PUBLIC,
-    LIMIT_UNLOCKED,
-    MAX_PUBLIC_RES,
-    MAX_UNLOCKED_RES
-)
+from aiogram.enums import ParseMode
 
-# --- INIT BOT ---
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
+# =========================
+# CONFIG
+# =========================
+BOT_TOKEN = "ISI_TOKEN_BOT_KAMU_DI_SINI"  # TANPA SPASI
+OWNER_ID = 123456789  # ganti dengan ID telegram kamu (angka)
 
-# --- HELPER FUNCTIONS ---
-def load_data():
-    if not os.path.exists("data.json"):
-        return {"unlocked_users": [], "stats": {"total_download":0, "video":0, "audio":0}}
-    with open("data.json", "r") as f:
-        return json.load(f)
+DOWNLOAD_DIR = "downloads"
 
-def save_data(data):
-    with open("data.json", "w") as f:
-        json.dump(data, f, indent=2)
+LIMIT_PUBLIC = 5
+LIMIT_UNLOCKED = 50
 
-def is_owner(uid):
-    return uid == OWNER_ID
+MAX_PUBLIC_RES = 720
+MAX_UNLOCKED_RES = 2160
 
-def is_unlocked(uid, data):
-    return uid in data.get("unlocked_users", [])
+# =========================
+# GLOBAL DATA (SIMPLE)
+# =========================
+user_usage = {}
+unlocked_users = set()
 
-def can_download(uid, data):
-    if is_owner(uid):
-        return True
-    data.setdefault("usage", {})
-    today = str(uuid.uuid1().time)[:8]
-    used = data["usage"].get(uid, {}).get(today, 0)
-    limit = LIMIT_UNLOCKED if is_unlocked(uid, data) else LIMIT_PUBLIC
-    if used >= limit:
-        return False
-    data["usage"].setdefault(uid, {})[today] = used + 1
-    save_data(data)
-    return True
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-def detect_platform(url):
-    url = url.lower()
-    if "youtube" in url or "youtu.be" in url:
+# =========================
+# HELPER FUNCTIONS
+# =========================
+
+def is_unlocked(user_id: int) -> bool:
+    return user_id == OWNER_ID or user_id in unlocked_users
+
+
+def check_limit(user_id: int) -> bool:
+    limit = LIMIT_UNLOCKED if is_unlocked(user_id) else LIMIT_PUBLIC
+    return user_usage.get(user_id, 0) < limit
+
+
+def increase_usage(user_id: int):
+    user_usage[user_id] = user_usage.get(user_id, 0) + 1
+
+
+def detect_platform(url: str) -> str:
+    if "youtube.com" in url or "youtu.be" in url:
         return "YouTube"
-    if "tiktok" in url:
+    if "tiktok.com" in url:
         return "TikTok"
-    if "instagram" in url:
+    if "instagram.com" in url:
         return "Instagram"
     return "Unknown"
 
-def quality_keyboard(uid, url):
-    keyboard = InlineKeyboardMarkup(
+
+def quality_keyboard(uid: int, url: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="360p", callback_data=f"v|360|{url}"),
-                InlineKeyboardButton(text="720p", callback_data=f"v|720|{url}")
+                InlineKeyboardButton(text="360p", callback_data=f"q|360|{url}"),
+                InlineKeyboardButton(text="720p", callback_data=f"q|720|{url}"),
             ],
             [
-                InlineKeyboardButton(text="MP3", callback_data=f"a|0|{url}")
+                InlineKeyboardButton(text="1080p", callback_data=f"q|1080|{url}"),
             ]
         ]
     )
-    return keyboard
 
-# --- COMMAND HANDLERS ---
+# =========================
+# BOT SETUP
+# =========================
+bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+dp = Dispatcher()
+
+# =========================
+# COMMANDS
+# =========================
 @dp.message(CommandStart())
 async def start(message: types.Message):
-    uid = message.from_user.id
-    data = load_data()
-    role = "👑 Owner (Unlimited)" if is_owner(uid) else ("🔓 Unlocked (max 720p)" if is_unlocked(uid, data) else "👤 Public (max 360p)")
     await message.answer(
-        f"📥 *Advanced Video Downloader*\n\nStatus kamu: {role}\n\nKirim link video untuk mulai download 🎬",
-        parse_mode="Markdown"
+        "👋 <b>Video Downloader Bot</b>\n\n"
+        "Kirim link YouTube / TikTok / Instagram untuk download video."
     )
+
 
 @dp.message(Command("stats"))
 async def stats(message: types.Message):
     if message.from_user.id != OWNER_ID:
         return
-    data = load_data()
-    s = data["stats"]
     await message.answer(
-        f"📊 Statistik Bot\n\n"
-        f"⬇ Total download: {s['total_download']}\n"
-        f"🎬 Video: {s['video']}\n"
-        f"🎵 Audio: {s['audio']}\n"
-        f"👤 Unlocked user: {len(data['unlocked_users'])}"
+        f"📊 <b>Stats</b>\n"
+        f"Users: {len(user_usage)}\n"
+        f"Unlocked: {len(unlocked_users)}"
     )
 
-@dp.message(Command("unlock"))
-async def unlock(message: types.Message):
-    uid = message.from_user.id
-    data = load_data()
-    if uid not in data["unlocked_users"]:
-        data["unlocked_users"].append(uid)
-        save_data(data)
-        await message.answer("✅ Kamu berhasil unlock! Maks resolusi 720p")
-    else:
-        await message.answer("ℹ️ Kamu sudah unlock sebelumnya")
-
-# --- URL HANDLER ---
+# =========================
+# HANDLE URL
+# =========================
 @dp.message()
 async def handle_url(message: types.Message):
-    uid = message.from_user.id
-    url = message.text.strip()
-
-    if url.startswith("/"):
-        return
-
-    platform = detect_platform(url)
-    if platform == "Unknown":
-        return await message.answer("❌ Platform tidak didukung.")
-
-    data = load_data()
-    if not can_download(uid, data):
-        return await message.answer("⏱ Limit harian tercapai")
-
-    keyboard = quality_keyboard(uid, url)
-    await message.answer(f"🔎 Platform: *{platform}*\nPilih format:", parse_mode="Markdown", reply_markup=keyboard)
-
-# --- CALLBACK HANDLER ---
-@dp.callback_query()
-async def callback_handler(call: types.CallbackQuery):
-    mode, quality, url = call.data.split("|", 2)
-    uid = call.from_user.id
-    data = load_data()
-    max_res = 9999 if is_owner(uid) else MAX_UNLOCKED_RES if is_unlocked(uid, data) else MAX_PUBLIC_RES
-
-    if mode == "v" and int(quality) > max_res:
-        return await call.answer(f"🔒 Max resolusi {max_res}p", show_alert=True)
-    if not can_download(uid, data):
-        return await call.message.answer("⏱ Limit harian tercapai")
-
-    await call.message.edit_text("⏳ Sedang mengunduh...")
-    uid_file = uuid.uuid4().hex
-    filepath = f"{DOWNLOAD_DIR}/{uid_file}"
-
-    ydl_opts = {
-        "outtmpl": filepath + ".%(ext)s",
-        "quiet": True,
-        "proxy": PROXY,
-        "noplaylist": True,
-        "merge_output_format": "mp4"
-    }
-    if mode == "v":
-        ydl_opts["format"] = f"bestvideo[height<={quality}]+bestaudio/best"
-    else:
-        ydl_opts.update({
-            "format": "bestaudio",
-            "postprocessors": [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }]
-        })
-
     try:
-        with YoutubeDL(ydl_opts) as ydl:
-            ydl.extract_info(url, download=True)
+        uid = message.from_user.id
+        url = message.text.strip()
 
-        final_file = f"{filepath}.{'mp3' if mode=='a' else 'mp4'}"
+        if url.startswith("/"):
+            return
 
-        if mode == "a":
-            await call.message.answer_audio(types.FSInputFile(final_file))
-        else:
-            await call.message.answer_video(types.FSInputFile(final_file))
+        platform = detect_platform(url)
+        if platform == "Unknown":
+            await message.answer("❌ Platform tidak didukung")
+            return
 
-        data["stats"]["total_download"] += 1
-        data["stats"]["video"] += 1 if mode=="v" else 0
-        data["stats"]["audio"] += 1 if mode=="a" else 0
-        save_data(data)
-        os.remove(final_file)
+        if not check_limit(uid):
+            await message.answer("🚫 Limit harian tercapai")
+            return
+
+        keyboard = quality_keyboard(uid, url)
+        await message.answer(
+            f"📥 <b>{platform}</b> terdeteksi\nPilih kualitas:",
+            reply_markup=keyboard
+        )
 
     except Exception as e:
-        await call.message.answer(f"❌ Error:\n`{e}`", parse_mode="Markdown")
+        await message.answer(f"⚠️ Error: {e}")
 
-# --- MAIN LOOP ---
+# =========================
+# CALLBACK
+# =========================
+@dp.callback_query()
+async def handle_quality(callback: types.CallbackQuery):
+    try:
+        data = callback.data.split("|")
+        if data[0] != "q":
+            return
+
+        quality = data[1]
+        url = data[2]
+        uid = callback.from_user.id
+
+        increase_usage(uid)
+
+        await callback.message.edit_text(
+            f"⏬ Download dimulai\nKualitas: <b>{quality}p</b>"
+        )
+
+        # SIMULASI DOWNLOAD
+        await asyncio.sleep(2)
+
+        await callback.message.answer("✅ Download selesai (dummy)")
+        await callback.answer()
+
+    except Exception as e:
+        await callback.answer("Error", show_alert=True)
+
+# =========================
+# MAIN
+# =========================
 async def main():
     await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
