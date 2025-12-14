@@ -2,22 +2,19 @@
 # CONFIG BOT TELEGRAM
 # =========================
 
-# Token bot dari @BotFather
-BOT_TOKEN = "BOT_TOKEN"
+BOT_TOKEN = "1234567890:AAxxxxxxxxxxxxxxxxxxxxxx"  # token asli tanpa spasi
 
-# ID Telegram owner (untuk akses unlimited & stats)
-OWNER_ID =   # ganti dengan ID kamu
+OWNER_ID = 123456789  # ganti dengan Telegram ID kamu (angka)
 
-# Folder untuk menyimpan file sementara
 DOWNLOAD_DIR = "downloads"
 
 # Limit harian
-LIMIT_PUBLIC =          # jumlah link yang bisa di-download public per hari
-LIMIT_UNLOCKED =        # jumlah link yang bisa di-download user unlocked per hari
+LIMIT_PUBLIC = 3
+LIMIT_UNLOCKED = 50
 
-# Resolusi maksimal
-MAX_PUBLIC_RES =      # max resolusi video untuk user public
-MAX_UNLOCKED_RES =    # max resolusi video untuk user unlocked
+# Resolusi maksimal (dalam pixel)
+MAX_PUBLIC_RES = 360
+MAX_UNLOCKED_RES = 720
 
 # =========================
 # END OF CONFIG
