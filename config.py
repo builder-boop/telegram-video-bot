@@ -8,9 +8,6 @@ BOT_TOKEN = "TOKEN KAMU"
 # ID Telegram owner (untuk akses unlimited & stats)
 OWNER_ID = 12345678  # ganti dengan ID kamu
 
-# Proxy (jika perlu, misal "socks5://127.0.0.1:1080"), kalau tidak pakai None
-PROXY = None
-
 # Folder untuk menyimpan file sementara
 DOWNLOAD_DIR = "downloads"
 
