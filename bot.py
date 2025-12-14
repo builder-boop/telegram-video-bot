@@ -9,7 +9,6 @@ from yt_dlp import YoutubeDL
 from config import (
     BOT_TOKEN,
     OWNER_ID,
-    PROXY,
     DOWNLOAD_DIR,
     LIMIT_PUBLIC,
     LIMIT_UNLOCKED,
