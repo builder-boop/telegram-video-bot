@@ -18,7 +18,7 @@ from config import (
 )
 
 # --- INIT BOT ---
-bot = Bot(token=BOT_TOKEN, proxy=PROXY)
+bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 # --- HELPER FUNCTIONS ---
